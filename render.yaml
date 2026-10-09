@@ -17,7 +17,7 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: DATABASE_URL
-        sync: false # Set to your Neon or Supabase PostgreSQL URL
+        value: sqlite:///./trustdoc.db
       - key: CORS_ORIGINS
         value: "*"
       - key: PUBLIC_BASE_URL
