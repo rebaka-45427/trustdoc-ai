@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrustDoc AI - Verification Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const App = () => {
+            const [token, setToken] = useState(localStorage.getItem('token'));
+            const [view, setView] = useState('login');
+            const [docs, setDocs] = useState([]);
+            const [message, setMessage] = useState('');
+
+            const apiBase = '/api';
+
+            useEffect(() => {
+                if (token) {
+                    setView('dashboard');
+                    fetchDocs();
+                }
+            }, [token]);
+
+            const fetchDocs = async () => {
+                try {
+                    const res = await fetch(`${apiBase}/documents`, { headers: { 'Authorization': `Bearer ${token}` } });
+                    const data = await res.json();
+                    if (data.documents) setDocs(data.documents);
+                } catch (e) {
+                    console.error(e);
+                }
+            };
+
+            const login = async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const res = await fetch(`${apiBase}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(Object.fromEntries(formData))
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setToken(data.access_token);
+                    localStorage.setItem('token', data.access_token);
+                } else {
+                    setMessage('Login failed');
+                }
+            };
+
+            const upload = async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const res = await fetch(`${apiBase}/documents/upload`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData
+                });
+                if (res.ok) {
+                    setMessage('Upload successful!');
+                    fetchDocs();
+                }
+            };
+
+            const analyze = async (id) => {
+                const res = await fetch(`${apiBase}/documents/${id}/analyze`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    setMessage('Analysis started');
+                    setTimeout(fetchDocs, 2000);
+                }
+            };
+
+            if (!token) {
+                return (
+                    <div className="flex h-screen items-center justify-center">
+                        <div className="bg-white p-8 rounded shadow-md w-96">
+                            <h1 className="text-2xl font-bold mb-6 text-center text-blue-600">TrustDoc AI</h1>
+                            {message && <p className="text-red-500 mb-4">{message}</p>}
+                            <form onSubmit={login} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm">Email</label>
+                                    <input name="email" type="email" className="w-full border p-2 rounded" required />
+                                </div>
+                                <div>
+                                    <label className="block text-sm">Password</label>
+                                    <input name="password" type="password" className="w-full border p-2 rounded" required />
+                                </div>
+                                <button className="w-full bg-blue-600 text-white p-2 rounded">Login</button>
+                            </form>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen flex flex-col">
+                    <nav className="bg-white shadow p-4 flex justify-between items-center">
+                        <h1 className="text-xl font-bold text-blue-600">TrustDoc AI Dashboard</h1>
+                        <button onClick={() => { setToken(''); localStorage.clear(); setView('login'); }} className="text-sm text-gray-600">Logout</button>
+                    </nav>
+                    <main className="p-8 max-w-6xl mx-auto w-full">
+                        {message && <div className="bg-green-100 text-green-800 p-4 mb-4 rounded">{message}</div>}
+                        
+                        <div className="bg-white p-6 rounded shadow mb-8">
+                            <h2 className="text-lg font-bold mb-4">Upload Document</h2>
+                            <form onSubmit={upload} className="flex gap-4 items-center">
+                                <input type="file" name="file" className="border p-2 rounded" required />
+                                <button className="bg-blue-600 text-white px-4 py-2 rounded">Upload & Verify</button>
+                            </form>
+                        </div>
+
+                        <div className="bg-white p-6 rounded shadow">
+                            <h2 className="text-lg font-bold mb-4">My Documents</h2>
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="border-b">
+                                        <th className="p-2">Doc ID</th>
+                                        <th className="p-2">Status</th>
+                                        <th className="p-2">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {docs.map(doc => (
+                                        <tr key={doc.id} className="border-b">
+                                            <td className="p-2">{doc.doc_id}</td>
+                                            <td className="p-2">
+                                                <span className={`px-2 py-1 rounded text-xs ${doc.status === 'ANALYZED' ? 'bg-green-100 text-green-800' : 'bg-gray-100'}`}>
+                                                    {doc.status}
+                                                </span>
+                                            </td>
+                                            <td className="p-2">
+                                                {doc.status === 'UPLOADED' && (
+                                                    <button onClick={() => analyze(doc.id)} className="bg-purple-600 text-white px-3 py-1 rounded text-sm">Analyze AI</button>
+                                                )}
+                                                {doc.status === 'ANALYZED' && (
+                                                    <button className="bg-gray-200 text-gray-800 px-3 py-1 rounded text-sm">View Report</button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {docs.length === 0 && <tr><td colSpan="3" className="p-4 text-center text-gray-500">No documents found.</td></tr>}
+                                </tbody>
+                            </table>
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

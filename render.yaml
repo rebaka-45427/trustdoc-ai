@@ -1,0 +1,42 @@
+services:
+  # Backend Web Service
+  - type: web
+    name: trustdoc-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    plan: free
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: HMAC_SECRET
+        generateValue: true
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false # Set to your Neon or Supabase PostgreSQL URL
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: PUBLIC_BASE_URL
+        value: "*"
+
+  # Frontend Static Site
+  - type: web
+    name: trustdoc-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          name: trustdoc-backend
+          type: web
+          property: host
