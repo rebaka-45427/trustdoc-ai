@@ -33,10 +33,36 @@ from app.database import engine, Base
 def startup_event():
     Base.metadata.create_all(bind=engine)
     try:
-        import sys
-        sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-        from seed_data import seed_db
-        seed_db()
+        from app.database import SessionLocal
+        from app.models.user import User, UserRole
+        from app.core.security import hash_password
+        
+        db = SessionLocal()
+        admin_email = "admin@trustdoc.ai"
+        if not db.query(User).filter_by(email=admin_email).first():
+            admin = User(
+                email=admin_email,
+                hashed_password=hash_password("Admin@123456"),
+                full_name="System Admin",
+                role=UserRole.ADMIN,
+                is_active=True
+            )
+            db.add(admin)
+            
+        reviewer_email = "reviewer@trustdoc.ai"
+        if not db.query(User).filter_by(email=reviewer_email).first():
+            reviewer = User(
+                email=reviewer_email,
+                hashed_password=hash_password("Review@123456"),
+                full_name="System Reviewer",
+                role=UserRole.REVIEWER,
+                is_active=True
+            )
+            db.add(reviewer)
+            
+        db.commit()
+        db.close()
+        print("Database initialized and seeded successfully!")
     except Exception as e:
         print(f"Database seed note: {e}")
 
